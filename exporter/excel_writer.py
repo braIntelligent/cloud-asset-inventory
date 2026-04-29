@@ -111,6 +111,16 @@ ROW_COLORS = {
     "DETENIENDO":     "FFFFF3CC",
 }
 
+MANUAL_FIELDS = {
+    "AMBIENTE", "CRITICIDAD", "CATEGORIA", "PROVEEDOR RESPONSABLE",
+    "PAM", "VERSION EDR", "VERSION AGENTE", "GRUPO VULN SCAN", "DESCRIPCION",
+}
+MANUAL_START = "AMBIENTE"  # primera columna manual — aqui va el separador
+
+AUTO_COLUMNS = [(h, k) for h, k in COLUMNS if h not in MANUAL_FIELDS]
+AUTO_HEADERS = [h for h, _ in AUTO_COLUMNS]
+AUTO_KEYS    = [k for _, k in AUTO_COLUMNS]
+
 HEADER_COLOR = "FF375F7C"
 HEADERS      = [h for h, _ in COLUMNS]
 KEYS         = [k for _, k in COLUMNS]
@@ -119,6 +129,12 @@ KEYS         = [k for _, k in COLUMNS]
 def _border():
     thin = Side(style="thin", color="FFB0B0B0")
     return Border(left=thin, right=thin, top=thin, bottom=thin)
+
+
+def _border_separator():
+    thin  = Side(style="thin",   color="FFB0B0B0")
+    thick = Side(style="medium", color="FF375F7C")
+    return Border(left=thick, right=thin, top=thin, bottom=thin)
 
 
 GKE_COLUMNS = [
@@ -316,10 +332,17 @@ def _populate_editable_sheet(ws, existing_rows: list, existing_headers: list,
     - Agrega al final solo los recursos nuevos
     """
     ws.freeze_panes = "B2"
-    border = _border()
+    border    = _border()
+    border_sep = _border_separator()
 
     # usar headers existentes si los hay, sino los estandar
     write_headers = existing_headers if existing_headers else HEADERS
+
+    # indice (1-based) de la primera columna manual — aqui va el borde grueso
+    sep_col = (write_headers.index(MANUAL_START) + 1) if MANUAL_START in write_headers else None
+
+    def _cell_border(ci):
+        return border_sep if ci == sep_col else border
 
     # cabecera
     for ci, header in enumerate(write_headers, 1):
@@ -327,7 +350,7 @@ def _populate_editable_sheet(ws, existing_rows: list, existing_headers: list,
         cell.font      = Font(bold=True, name="Arial", size=10, color="FFFFFFFF")
         cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
         cell.fill      = PatternFill("solid", start_color=HEADER_COLOR)
-        cell.border    = border
+        cell.border    = _cell_border(ci)
     ws.row_dimensions[1].height = 28
 
     idx_estado = write_headers.index("ESTADO") if "ESTADO" in write_headers else 1
@@ -341,7 +364,7 @@ def _populate_editable_sheet(ws, existing_rows: list, existing_headers: list,
             cell           = ws.cell(row=ri, column=ci, value="" if val is None else val)
             cell.font      = Font(name="Arial", size=9)
             cell.alignment = Alignment(vertical="center")
-            cell.border    = border
+            cell.border    = _cell_border(ci)
             if row_fill:
                 cell.fill = row_fill
         ws.row_dimensions[ri].height = 16
@@ -359,7 +382,7 @@ def _populate_editable_sheet(ws, existing_rows: list, existing_headers: list,
             cell           = ws.cell(row=ri, column=ci, value="" if val is None else val)
             cell.font      = Font(name="Arial", size=9)
             cell.alignment = Alignment(vertical="center")
-            cell.border    = border
+            cell.border    = _cell_border(ci)
             if row_fill:
                 cell.fill = row_fill
         ws.row_dimensions[ri].height = 16
@@ -449,11 +472,11 @@ def write_all(resources_by_type: dict, output_path: str) -> None:
 
 
 def _populate_vm_sheet(ws, resources: list) -> None:
-    """Llena la hoja de VMs con el formato estandar."""
+    """Llena la hoja INSTANCIAS (solo campos API, sin columnas manuales)."""
     ws.freeze_panes = "B2"
     border = _border()
 
-    for ci, header in enumerate(HEADERS, 1):
+    for ci, header in enumerate(AUTO_HEADERS, 1):
         cell           = ws.cell(row=1, column=ci, value=header)
         cell.font      = Font(bold=True, name="Arial", size=10, color="FFFFFFFF")
         cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
@@ -465,7 +488,7 @@ def _populate_vm_sheet(ws, resources: list) -> None:
         estado    = str(getattr(resource, "estado", "")).upper()
         row_color = ROW_COLORS.get(estado)
         row_fill  = PatternFill("solid", start_color=row_color) if row_color else None
-        for ci, key in enumerate(KEYS, 1):
+        for ci, key in enumerate(AUTO_KEYS, 1):
             val = resource.metadata.get(key) if resource.metadata else None
             if val is None:
                 val = getattr(resource, key, "")
@@ -477,21 +500,12 @@ def _populate_vm_sheet(ws, resources: list) -> None:
                 cell.fill = row_fill
         ws.row_dimensions[ri].height = 16
 
-    for ci, header in enumerate(HEADERS, 1):
+    for ci, header in enumerate(AUTO_HEADERS, 1):
         ws.column_dimensions[get_column_letter(ci)].width = WIDTHS.get(header, 15)
 
-    last_col = get_column_letter(len(HEADERS))
+    last_col = get_column_letter(len(AUTO_HEADERS))
     last_row = len(resources) + 1
     ws.auto_filter.ref = f"A1:{last_col}{last_row}"
-
-    col_amb = get_column_letter(HEADERS.index("AMBIENTE") + 1)
-    col_cri = get_column_letter(HEADERS.index("CRITICIDAD") + 1)
-    dv_amb  = DataValidation(type="list", formula1='"PRODUCCION,DESARROLLO"', allow_blank=True)
-    dv_cri  = DataValidation(type="list", formula1='"ALTA,MEDIA,BAJA"',       allow_blank=True)
-    dv_amb.sqref = f"{col_amb}2:{col_amb}{last_row}"
-    dv_cri.sqref = f"{col_cri}2:{col_cri}{last_row}"
-    ws.add_data_validation(dv_amb)
-    ws.add_data_validation(dv_cri)
 
 
 # ── CLOUD SQL ─────────────────────────────────────────────────────────────────
