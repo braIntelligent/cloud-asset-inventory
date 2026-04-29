@@ -564,10 +564,6 @@ STORAGE_COLUMNS = [
     ("LIFECYCLE RULES",       "lifecycle_rules"),
     ("FECHA CREACION",        "fecha_creacion"),
     ("ULTIMA ACTUALIZACION",  "ultima_actualizacion"),
-    ("AMBIENTE",              "ambiente"),
-    ("CRITICIDAD",            "criticidad"),
-    ("PROVEEDOR RESPONSABLE", "proveedor_responsable"),
-    ("DESCRIPCION",           "descripcion"),
 ]
 
 STORAGE_WIDTHS = {
@@ -577,8 +573,6 @@ STORAGE_WIDTHS = {
     "VERSIONADO":12, "ENCRIPTACION":26,
     "RETENTION POLICY":18, "LIFECYCLE RULES":16,
     "FECHA CREACION":16, "ULTIMA ACTUALIZACION":20,
-    "AMBIENTE":14, "CRITICIDAD":12,
-    "PROVEEDOR RESPONSABLE":22, "DESCRIPCION":35,
 }
 
 # ── APIS HABILITADAS ──────────────────────────────────────────────────────────
@@ -613,10 +607,6 @@ CLOUDRUN_COLUMNS = [
     ("ULTIMA REVISION",       "ultima_revision"),
     ("FECHA CREACION",        "fecha_creacion"),
     ("ULTIMA ACTUALIZACION",  "ultima_actualizacion"),
-    ("AMBIENTE",              "ambiente"),
-    ("CRITICIDAD",            "criticidad"),
-    ("PROVEEDOR RESPONSABLE", "proveedor_responsable"),
-    ("DESCRIPCION",           "descripcion"),
 ]
 
 CLOUDRUN_WIDTHS = {
@@ -627,8 +617,6 @@ CLOUDRUN_WIDTHS = {
     "CONCURRENCIA":14, "INGRESS":14,
     "ULTIMA REVISION":36,
     "FECHA CREACION":16, "ULTIMA ACTUALIZACION":20,
-    "AMBIENTE":14, "CRITICIDAD":12,
-    "PROVEEDOR RESPONSABLE":22, "DESCRIPCION":35,
 }
 
 # ── REGISTRO DE HOJAS ─────────────────────────────────────────────────────────
