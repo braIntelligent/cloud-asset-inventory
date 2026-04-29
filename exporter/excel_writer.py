@@ -355,6 +355,11 @@ def _populate_editable_sheet(ws, existing_rows: list, existing_headers: list,
 
     idx_estado = write_headers.index("ESTADO") if "ESTADO" in write_headers else 1
 
+    # mapa header → indice de columna (basado en el orden real del archivo)
+    header_to_col = {h: ci for ci, h in enumerate(write_headers, 1)}
+    # mapa header → clave del resource (solo columnas estandar)
+    header_to_key = {h: k for h, k in COLUMNS}
+
     # filas existentes — se copian tal cual, sin tocar
     for ri, row_data in enumerate(existing_rows, 2):
         estado    = str(row_data[idx_estado] if idx_estado < len(row_data) else "").upper()
@@ -369,16 +374,20 @@ def _populate_editable_sheet(ws, existing_rows: list, existing_headers: list,
                 cell.fill = row_fill
         ws.row_dimensions[ri].height = 16
 
-    # recursos nuevos — se agregan al final
+    # recursos nuevos — escritura por nombre de columna, no por posicion
     start_ri = len(existing_rows) + 2
     for ri, resource in enumerate(new_resources, start_ri):
         estado    = str(getattr(resource, "estado", "")).upper()
         row_color = ROW_COLORS.get(estado)
         row_fill  = PatternFill("solid", start_color=row_color) if row_color else None
-        for ci, key in enumerate(KEYS, 1):
-            val = resource.metadata.get(key) if resource.metadata else None
-            if val is None:
-                val = getattr(resource, key, "")
+        for header, ci in header_to_col.items():
+            key = header_to_key.get(header)
+            if key is None:
+                val = ""  # columna custom del usuario — dejar vacia
+            else:
+                val = resource.metadata.get(key) if resource.metadata else None
+                if val is None:
+                    val = getattr(resource, key, "")
             cell           = ws.cell(row=ri, column=ci, value="" if val is None else val)
             cell.font      = Font(name="Arial", size=9)
             cell.alignment = Alignment(vertical="center")
@@ -387,8 +396,8 @@ def _populate_editable_sheet(ws, existing_rows: list, existing_headers: list,
                 cell.fill = row_fill
         ws.row_dimensions[ri].height = 16
 
-    # anchos de columnas estandar
-    for ci, header in enumerate(HEADERS, 1):
+    # anchos: estandar para columnas conocidas, default para las custom del usuario
+    for header, ci in header_to_col.items():
         ws.column_dimensions[get_column_letter(ci)].width = WIDTHS.get(header, 15)
 
     # autofilter y validaciones
@@ -397,14 +406,16 @@ def _populate_editable_sheet(ws, existing_rows: list, existing_headers: list,
     last_row   = total_rows + 1
     ws.auto_filter.ref = f"A1:{last_col}{last_row}"
 
-    col_amb = get_column_letter(HEADERS.index("AMBIENTE") + 1)
-    col_cri = get_column_letter(HEADERS.index("CRITICIDAD") + 1)
-    dv_amb  = DataValidation(type="list", formula1='"PRODUCCION,DESARROLLO"', allow_blank=True)
-    dv_cri  = DataValidation(type="list", formula1='"ALTA,MEDIA,BAJA"',       allow_blank=True)
-    dv_amb.sqref = f"{col_amb}2:{col_amb}{last_row}"
-    dv_cri.sqref = f"{col_cri}2:{col_cri}{last_row}"
-    ws.add_data_validation(dv_amb)
-    ws.add_data_validation(dv_cri)
+    if "AMBIENTE" in header_to_col:
+        col_amb = get_column_letter(header_to_col["AMBIENTE"])
+        dv_amb  = DataValidation(type="list", formula1='"PRODUCCION,DESARROLLO"', allow_blank=True)
+        dv_amb.sqref = f"{col_amb}2:{col_amb}{last_row}"
+        ws.add_data_validation(dv_amb)
+    if "CRITICIDAD" in header_to_col:
+        col_cri = get_column_letter(header_to_col["CRITICIDAD"])
+        dv_cri  = DataValidation(type="list", formula1='"ALTA,MEDIA,BAJA"', allow_blank=True)
+        dv_cri.sqref = f"{col_cri}2:{col_cri}{last_row}"
+        ws.add_data_validation(dv_cri)
 
 
 def write_all(resources_by_type: dict, output_path: str) -> None:
