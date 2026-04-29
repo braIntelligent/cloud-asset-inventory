@@ -1,6 +1,6 @@
 # Cloud Infrastructure Inventory
 
-Script Python que extrae, unifica y mantiene actualizado un inventario completo de recursos de infraestructura cloud e híbrida, generando un Excel multi-hoja con lógica idempotente — preserva los campos llenados manualmente entre ejecuciones.
+Script Python que extrae y exporta un inventario completo de recursos de infraestructura cloud e híbrida a un Excel multi-hoja. Genera hojas automaticas siempre actualizadas y una hoja editable donde el equipo puede anotar y enriquecer datos sin riesgo de perder su trabajo.
 
 ---
 
@@ -34,8 +34,7 @@ vm-inventory/
 │       └── compute.py             # VMs vCenter (GCVE / Bridge)
 ├── core/
 │   ├── models.py                  # Dataclass Resource — contrato unico
-│   ├── base_collector.py          # Clase abstracta BaseCollector
-│   └── merger.py                  # Logica idempotente de merge
+│   └── base_collector.py          # Clase abstracta BaseCollector
 ├── exporter/
 │   └── excel_writer.py            # Generacion del Excel multi-hoja
 └── utils/
@@ -47,14 +46,19 @@ vm-inventory/
 
 ## Hojas del Excel generado
 
-| Hoja | Contenido |
-|---|---|
-| `INSTANCIAS` | VMs (GCP + GCVE + Bridge) + Cloud SQL + GKE Clusters |
-| `ALMACENAMIENTO` | Buckets Cloud Storage |
-| `CLOUD RUN` | Servicios Cloud Run |
-| `SERVICIOS` | APIs y servicios habilitados por proyecto |
+| Hoja | Tipo | Contenido |
+|---|---|---|
+| `INSTANCIAS` | Auto | VMs (GCP + GCVE + Bridge) + Cloud SQL + GKE Clusters — siempre fresca |
+| `INSTANCIAS EDITABLE` | Editable | Mismos recursos — el equipo puede agregar columnas, anotaciones y editar valores libremente |
+| `ALMACENAMIENTO` | Auto | Buckets Cloud Storage |
+| `CLOUD RUN` | Auto | Servicios Cloud Run |
+| `SERVICIOS` | Auto | APIs y servicios habilitados por proyecto |
 
-> **Nota:** Cloud SQL y GKE se muestran dentro de la hoja `INSTANCIAS`. La columna `TIPO RECURSO` distingue entre `VIRTUAL MACHINE`, `CLOUD SQL` y `GKE CLUSTER`.
+**Hojas auto:** se sobreescriben completamente en cada ejecucion. Siempre reflejan el estado real de GCP.
+
+**Hoja editable:** el script solo agrega filas nuevas. Nunca modifica ni elimina lo que ya esta. El equipo puede editar celdas, agregar columnas propias y hacer anotaciones sin riesgo.
+
+> Cloud SQL y GKE se muestran dentro de `INSTANCIAS`. La columna `TIPO RECURSO` distingue entre `VIRTUAL MACHINE`, `CLOUD SQL` y `GKE CLUSTER`.
 
 ---
 
@@ -112,7 +116,23 @@ Contiene VMs (GCP + GCVE + Bridge) e instancias Cloud SQL. La columna `TIPO RECU
 
 ---
 
+### Hoja INSTANCIAS EDITABLE
+
+Mismos datos que la hoja `INSTANCIAS`, pero bajo control total del equipo.
+
+| Comportamiento | Detalle |
+|---|---|
+| Primera ejecucion | Se crea con todos los recursos actuales |
+| Recurso nuevo en GCP | Se agrega al final de la hoja |
+| Recurso eliminado de GCP | La fila permanece — el equipo la elimina cuando quiera |
+| El equipo edita una celda | Nunca se toca |
+| El equipo agrega columnas propias | Se preservan en cada ejecucion |
+
+---
+
 ### Hoja GKE
+
+> **Nota:** Los campos GKE ahora aparecen dentro de la hoja `INSTANCIAS` (y `INSTANCIAS EDITABLE`). Esta seccion describe esos campos.
 
 | Campo | Descripcion |
 |---|---|
@@ -196,17 +216,6 @@ Lista de APIs y servicios GCP habilitados por proyecto. Util para auditar que se
 **Manuales:** `AMBIENTE` · `CRITICIDAD` · `PROVEEDOR RESPONSABLE` · `DESCRIPCION`
 
 ---
-
-## Logica idempotente
-
-| Situacion | Comportamiento |
-|---|---|
-| Recurso nuevo | Se agrega con campos manuales vacios |
-| Recurso existente | Se actualizan solo campos automaticos — los manuales se preservan |
-| Recurso eliminado (su fuente respondio) | Se marca como `ELIMINADA` — no se borra la fila |
-| Recurso de fuente que fallo | Se conserva intacto hasta proxima ejecucion exitosa |
-
-La clave de merge es `nombre + proyecto`, evitando colisiones entre recursos con el mismo nombre en distintos proyectos.
 
 ---
 

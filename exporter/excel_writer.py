@@ -6,6 +6,7 @@ Genera el archivo Excel final a partir de una lista de Resource.
 import logging
 import os
 
+import openpyxl
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
 from openpyxl.utils import get_column_letter
@@ -263,16 +264,139 @@ def write(resources: list, output_path: str) -> None:
     logger.debug(f"[Excel] Guardado: {output_path} ({len(resources)} recursos)")
 
 
+def _load_editable_data(path: str) -> tuple:
+    """
+    Lee la hoja INSTANCIAS EDITABLE del Excel existente.
+    Retorna (data_rows, existing_keys, headers):
+      - data_rows: lista de tuplas con todos los valores (incluyendo columnas extra del usuario)
+      - existing_keys: set de "nombre::proyecto::tipo_recurso"
+      - headers: lista de cabeceras tal como estan en la hoja
+    """
+    if not os.path.exists(path):
+        return [], set(), []
+    try:
+        wb = openpyxl.load_workbook(path, data_only=True)
+    except Exception:
+        return [], set(), []
+
+    if "INSTANCIAS EDITABLE" not in wb.sheetnames:
+        return [], set(), []
+
+    ws   = wb["INSTANCIAS EDITABLE"]
+    rows = list(ws.iter_rows(values_only=True))
+    if not rows:
+        return [], set(), []
+
+    headers   = list(rows[0])
+    data_rows = rows[1:]
+
+    try:
+        idx_nombre   = headers.index("NOMBRE")
+        idx_proyecto = headers.index("PROYECTO")
+        idx_tipo     = headers.index("TIPO RECURSO")
+    except ValueError:
+        return data_rows, set(), headers
+
+    existing_keys = set()
+    for row in data_rows:
+        nombre   = str(row[idx_nombre]   if idx_nombre   < len(row) else "").strip()
+        proyecto = str(row[idx_proyecto] if idx_proyecto < len(row) else "").strip()
+        tipo     = str(row[idx_tipo]     if idx_tipo     < len(row) else "").strip()
+        if nombre:
+            existing_keys.add(f"{nombre}::{proyecto}::{tipo}")
+
+    return data_rows, existing_keys, headers
+
+
+def _populate_editable_sheet(ws, existing_rows: list, existing_headers: list,
+                              new_resources: list) -> None:
+    """
+    Escribe la hoja INSTANCIAS EDITABLE:
+    - Preserva todas las filas existentes (ediciones del usuario, columnas extra)
+    - Agrega al final solo los recursos nuevos
+    """
+    ws.freeze_panes = "B2"
+    border = _border()
+
+    # usar headers existentes si los hay, sino los estandar
+    write_headers = existing_headers if existing_headers else HEADERS
+
+    # cabecera
+    for ci, header in enumerate(write_headers, 1):
+        cell           = ws.cell(row=1, column=ci, value=header)
+        cell.font      = Font(bold=True, name="Arial", size=10, color="FFFFFFFF")
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        cell.fill      = PatternFill("solid", start_color=HEADER_COLOR)
+        cell.border    = border
+    ws.row_dimensions[1].height = 28
+
+    idx_estado = write_headers.index("ESTADO") if "ESTADO" in write_headers else 1
+
+    # filas existentes — se copian tal cual, sin tocar
+    for ri, row_data in enumerate(existing_rows, 2):
+        estado    = str(row_data[idx_estado] if idx_estado < len(row_data) else "").upper()
+        row_color = ROW_COLORS.get(estado)
+        row_fill  = PatternFill("solid", start_color=row_color) if row_color else None
+        for ci, val in enumerate(row_data, 1):
+            cell           = ws.cell(row=ri, column=ci, value="" if val is None else val)
+            cell.font      = Font(name="Arial", size=9)
+            cell.alignment = Alignment(vertical="center")
+            cell.border    = border
+            if row_fill:
+                cell.fill = row_fill
+        ws.row_dimensions[ri].height = 16
+
+    # recursos nuevos — se agregan al final
+    start_ri = len(existing_rows) + 2
+    for ri, resource in enumerate(new_resources, start_ri):
+        estado    = str(getattr(resource, "estado", "")).upper()
+        row_color = ROW_COLORS.get(estado)
+        row_fill  = PatternFill("solid", start_color=row_color) if row_color else None
+        for ci, key in enumerate(KEYS, 1):
+            val = resource.metadata.get(key) if resource.metadata else None
+            if val is None:
+                val = getattr(resource, key, "")
+            cell           = ws.cell(row=ri, column=ci, value="" if val is None else val)
+            cell.font      = Font(name="Arial", size=9)
+            cell.alignment = Alignment(vertical="center")
+            cell.border    = border
+            if row_fill:
+                cell.fill = row_fill
+        ws.row_dimensions[ri].height = 16
+
+    # anchos de columnas estandar
+    for ci, header in enumerate(HEADERS, 1):
+        ws.column_dimensions[get_column_letter(ci)].width = WIDTHS.get(header, 15)
+
+    # autofilter y validaciones
+    total_rows = len(existing_rows) + len(new_resources)
+    last_col   = get_column_letter(len(write_headers))
+    last_row   = total_rows + 1
+    ws.auto_filter.ref = f"A1:{last_col}{last_row}"
+
+    col_amb = get_column_letter(HEADERS.index("AMBIENTE") + 1)
+    col_cri = get_column_letter(HEADERS.index("CRITICIDAD") + 1)
+    dv_amb  = DataValidation(type="list", formula1='"PRODUCCION,DESARROLLO"', allow_blank=True)
+    dv_cri  = DataValidation(type="list", formula1='"ALTA,MEDIA,BAJA"',       allow_blank=True)
+    dv_amb.sqref = f"{col_amb}2:{col_amb}{last_row}"
+    dv_cri.sqref = f"{col_cri}2:{col_cri}{last_row}"
+    ws.add_data_validation(dv_amb)
+    ws.add_data_validation(dv_cri)
+
+
 def write_all(resources_by_type: dict, output_path: str) -> None:
     """
-    Escribe multiples hojas en el Excel segun tipo de recurso.
-    El orden y configuracion de cada hoja viene del SHEET_REGISTRY.
-    Cloud SQL se fusiona en la hoja INSTANCIAS.
+    Escribe el Excel:
+    - Hojas auto (INSTANCIAS, ALMACENAMIENTO, etc.): siempre frescas desde la API
+    - Hoja INSTANCIAS EDITABLE: preserva ediciones del usuario, solo agrega filas nuevas
     """
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
-    # Fusionar Cloud SQL y GKE dentro de VIRTUAL MACHINE → hoja INSTANCIAS
-    combinado = dict(resources_by_type)
+    # 1. Cargar datos editables ANTES de crear el nuevo workbook
+    existing_rows, existing_keys, existing_headers = _load_editable_data(output_path)
+
+    # 2. Combinar recursos para hojas auto
+    combinado  = dict(resources_by_type)
     instancias = (
         combinado.get("VIRTUAL MACHINE", []) +
         combinado.get("CLOUD SQL", []) +
@@ -283,6 +407,7 @@ def write_all(resources_by_type: dict, output_path: str) -> None:
     combinado.pop("CLOUD SQL", None)
     combinado.pop("GKE CLUSTER", None)
 
+    # 3. Crear workbook fresco con hojas auto
     wb      = Workbook()
     primera = True
 
@@ -306,10 +431,21 @@ def write_all(resources_by_type: dict, output_path: str) -> None:
     if primera:
         wb.active.title = "INVENTARIO"
 
+    # 4. Agregar hoja INSTANCIAS EDITABLE (solo append de recursos nuevos)
+    nuevos    = [
+        r for r in instancias
+        if f"{r.nombre}::{r.proyecto}::{r.tipo_recurso}" not in existing_keys
+    ]
+    ws_edit   = wb.create_sheet("INSTANCIAS EDITABLE")
+    _populate_editable_sheet(ws_edit, existing_rows, existing_headers, nuevos)
+
     wb.save(output_path)
     total = sum(len(v) for v in resources_by_type.values())
-    hojas = len([t for t in SHEET_REGISTRY if combinado.get(t)])
-    logger.debug(f"[Excel] Guardado: {output_path} ({total} recursos, {hojas} hojas)")
+    nuevos_count = len(nuevos)
+    logger.debug(
+        f"[Excel] Guardado: {output_path} ({total} recursos, "
+        f"{nuevos_count} nuevos en EDITABLE)"
+    )
 
 
 def _populate_vm_sheet(ws, resources: list) -> None:

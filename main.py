@@ -27,7 +27,6 @@ from collectors.gcp.storage     import CloudStorageCollector
 from collectors.gcp.apis        import APIsCollector
 from collectors.gcp.cloudrun    import CloudRunCollector
 from collectors.vcenter.compute import VCenterComputeCollector
-from core                       import merger
 from exporter.excel_writer      import write_all
 from utils.gcp_auth             import get_credentials
 from utils                      import logger as log
@@ -160,13 +159,10 @@ def main():
         )
         sys.exit(1)
 
-    # ── Merge idempotente ─────────────────────────────────────────────────────
-    output_path = config["output"]["path"]
-    final       = merger.merge(all_resources, output_path)
-
     # ── Exportar Excel multi-hoja ─────────────────────────────────────────────
+    output_path = config["output"]["path"]
     by_type = {}
-    for r in final:
+    for r in all_resources:
         by_type.setdefault(r.tipo_recurso, []).append(r)
     write_all(by_type, output_path)
 
