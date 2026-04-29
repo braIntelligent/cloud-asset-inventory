@@ -153,8 +153,6 @@ Mismos datos que la hoja `INSTANCIAS`, pero bajo control total del equipo.
 | `ENDPOINT API SERVER` | Direccion del servidor de API de Kubernetes |
 | `FECHA CREACION` / `ULTIMA ACTUALIZACION` | Fechas de creacion y ultimo escaneo |
 
-**Manuales:** `AMBIENTE` · `CRITICIDAD` · `PROVEEDOR RESPONSABLE` · `DESCRIPCION`
-
 ---
 
 ### Hoja ALMACENAMIENTO
@@ -172,8 +170,6 @@ Mismos datos que la hoja `INSTANCIAS`, pero bajo control total del equipo.
 | `RETENTION POLICY` | Tiempo minimo que deben conservarse los objetos antes de poder eliminarlos (ej: `365 dias`) |
 | `LIFECYCLE RULES` | `SI` si tiene reglas automaticas de transicion de clase o eliminacion de objetos |
 | `FECHA CREACION` / `ULTIMA ACTUALIZACION` | Fechas de creacion y ultimo escaneo |
-
-**Manuales:** `AMBIENTE` · `CRITICIDAD` · `PROVEEDOR RESPONSABLE` · `DESCRIPCION`
 
 ---
 
@@ -212,8 +208,6 @@ Lista de APIs y servicios GCP habilitados por proyecto. Util para auditar que se
 | `ULTIMA REVISION` | Nombre de la revision mas reciente. Cada deploy o cambio de config crea una nueva revision (ej: `mi-servicio-00042-xyz`) |
 | `FECHA CREACION` | Fecha en que se creo el servicio por primera vez |
 | `ULTIMA ACTUALIZACION` | Timestamp de la ultima ejecucion del script |
-
-**Manuales:** `AMBIENTE` · `CRITICIDAD` · `PROVEEDOR RESPONSABLE` · `DESCRIPCION`
 
 ---
 
