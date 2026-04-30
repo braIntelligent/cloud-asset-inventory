@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 > nul
 :: ============================================================
 ::  Inventario de Recursos — run.bat
 ::  1. Ejecuta el script en local (sin OneDrive)
