@@ -9,10 +9,22 @@
 set PROJECT_DIR=C:\inventory\vm-inventory
 set VENV_PYTHON=%PROJECT_DIR%\venv\Scripts\python.exe
 set OUTPUT_LOCAL=%PROJECT_DIR%\output\vm_inventory.xlsx
-set ONEDRIVE_DEST=C:\Users\usuario\OneDrive - Empresa\Inventario\vm_inventory.xlsx
+set ONEDRIVE_SUBDIR=Inventario\vm_inventory.xlsx
 :: ────────────────────────────────────────────────────────────
 
+:: detectar carpeta OneDrive automaticamente (cuenta empresa o personal)
+if defined OneDriveCommercial (
+    set ONEDRIVE_DEST=%OneDriveCommercial%\%ONEDRIVE_SUBDIR%
+) else if defined OneDrive (
+    set ONEDRIVE_DEST=%OneDrive%\%ONEDRIVE_SUBDIR%
+) else (
+    echo ERROR: No se encontro OneDrive en este equipo.
+    pause
+    exit /b 1
+)
+
 echo.
+echo OneDrive detectado: %ONEDRIVE_DEST%
 echo Ejecutando inventario...
 echo.
 
@@ -28,14 +40,16 @@ if %ERRORLEVEL% NEQ 0 (
 
 echo.
 echo Copiando a OneDrive...
+if not exist "%OneDriveCommercial%\Inventario" mkdir "%OneDriveCommercial%\Inventario" 2>nul
+if not exist "%OneDrive%\Inventario" mkdir "%OneDrive%\Inventario" 2>nul
 copy /Y "%OUTPUT_LOCAL%" "%ONEDRIVE_DEST%"
 
 if %ERRORLEVEL% NEQ 0 (
-    echo ERROR: No se pudo copiar a OneDrive. Revisar la ruta destino.
+    echo ERROR: No se pudo copiar a OneDrive. Ruta: %ONEDRIVE_DEST%
     pause
     exit /b 1
 )
 
 echo.
-echo Listo. Archivo actualizado en OneDrive.
+echo Listo. Archivo actualizado en: %ONEDRIVE_DEST%
 pause
