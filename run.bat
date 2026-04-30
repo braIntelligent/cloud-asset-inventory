@@ -1,5 +1,5 @@
 @echo off
-chcp 65001 > nul
+chcp 65001 > /dev/null
 :: ============================================================
 ::  Inventario de Recursos — run.bat
 ::  1. Baja el Excel de OneDrive a local (trae ediciones del equipo)
@@ -21,7 +21,6 @@ if defined OneDriveCommercial (
     set ONEDRIVE_FILE=%OneDrive%\%ONEDRIVE_SUBDIR%
 ) else (
     echo ERROR: No se encontro OneDrive en este equipo.
-    pause
     exit /b 1
 )
 
@@ -30,7 +29,6 @@ for %%F in ("%ONEDRIVE_FILE%") do set ONEDRIVE_DIR=%%~dpF
 if not exist "%ONEDRIVE_DIR%" (
     echo ERROR: La carpeta destino no existe: %ONEDRIVE_DIR%
     echo Creala manualmente en OneDrive y vuelve a ejecutar el bat.
-    pause
     exit /b 1
 )
 
@@ -45,7 +43,6 @@ if exist "%ONEDRIVE_FILE%" (
     if %ERRORLEVEL% NEQ 0 (
         echo ERROR: No se pudo leer el archivo de OneDrive.
         echo Asegurate que nadie lo tenga abierto e intenta de nuevo.
-        pause
         exit /b 1
     )
 ) else (
@@ -62,7 +59,6 @@ cd /d "%PROJECT_DIR%"
 if %ERRORLEVEL% NEQ 0 (
     echo.
     echo ERROR: El script termino con errores. No se subio el archivo.
-    pause
     exit /b 1
 )
 
@@ -73,10 +69,9 @@ copy /Y "%OUTPUT_LOCAL%" "%ONEDRIVE_FILE%"
 
 if %ERRORLEVEL% NEQ 0 (
     echo ERROR: No se pudo copiar a OneDrive. Ruta: %ONEDRIVE_FILE%
-    pause
     exit /b 1
 )
 
 echo.
 echo Listo. Archivo actualizado en: %ONEDRIVE_FILE%
-pause
+exit /b 0
