@@ -11,18 +11,8 @@ chcp 65001 > /dev/null
 set PROJECT_DIR=C:\inventory\vm-inventory
 set VENV_PYTHON=%PROJECT_DIR%\venv\Scripts\python.exe
 set OUTPUT_LOCAL=%PROJECT_DIR%\output\vm_inventory.xlsx
-set ONEDRIVE_SUBDIR=Inventario\vm_inventory.xlsx
+set ONEDRIVE_FILE=%OneDrive%\Inventario\vm_inventory.xlsx
 :: ────────────────────────────────────────────────────────────
-
-:: detectar carpeta OneDrive automaticamente (cuenta empresa o personal)
-if defined OneDriveCommercial (
-    set ONEDRIVE_FILE=%OneDriveCommercial%\%ONEDRIVE_SUBDIR%
-) else if defined OneDrive (
-    set ONEDRIVE_FILE=%OneDrive%\%ONEDRIVE_SUBDIR%
-) else (
-    echo ERROR: No se encontro OneDrive en este equipo.
-    exit /b 1
-)
 
 :: verificar que la carpeta destino existe
 for %%F in ("%ONEDRIVE_FILE%") do set ONEDRIVE_DIR=%%~dpF
