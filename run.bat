@@ -40,8 +40,16 @@ if %ERRORLEVEL% NEQ 0 (
 
 echo.
 echo Copiando a OneDrive...
-if not exist "%OneDriveCommercial%\Inventario" mkdir "%OneDriveCommercial%\Inventario" 2>nul
-if not exist "%OneDrive%\Inventario" mkdir "%OneDrive%\Inventario" 2>nul
+
+:: verificar que la carpeta destino existe antes de copiar
+for %%F in ("%ONEDRIVE_DEST%") do set ONEDRIVE_DIR=%%~dpF
+if not exist "%ONEDRIVE_DIR%" (
+    echo ERROR: La carpeta destino no existe: %ONEDRIVE_DIR%
+    echo Creala manualmente en OneDrive y vuelve a ejecutar el bat.
+    pause
+    exit /b 1
+)
+
 copy /Y "%OUTPUT_LOCAL%" "%ONEDRIVE_DEST%"
 
 if %ERRORLEVEL% NEQ 0 (
